@@ -1330,20 +1330,20 @@ def execute_regex_split(op, **kw):
 
 @translate.register(ops.IntegerRange)
 def execute_integer_range(op, **kw):
-    if not isinstance(op.step, ops.Literal):
-        raise com.UnsupportedOperationError(
-            "Dynamic integer step not supported by Polars"
-        )
-    step = op.step.value
+    if not (literal_step := isinstance(op.step, ops.Literal)):
+        if vparse(pl.__version__) < vparse("0.20.3"):
+            raise com.UnsupportedOperationError(
+                "Dynamic integer step requires Polars >= 0.20.3"
+            )
 
-    dtype = PolarsType.from_ibis(op.dtype.value_type)
-    empty = pl.int_ranges(0, 0, dtype=dtype)
-
-    if step == 0:
+    if literal_step and op.step.value == 0:
+        dtype = PolarsType.from_ibis(op.dtype.value_type)
+        empty = pl.int_ranges(0, 0, dtype=dtype)
         return empty
 
     start = translate(op.start, **kw)
     stop = translate(op.stop, **kw)
+    step = translate(op.step, **kw)
     return pl.int_ranges(start, stop, step, dtype=dtype)
 
 
